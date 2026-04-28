@@ -2,6 +2,8 @@
 
 **VoxTranslate** is a zero-latency (simulated), web-based application designed to capture live Portuguese conference audio through the browser and translate it into large, high-contrast English captions. It is built with a strict Brutalist aesthetic, prioritizing extreme legibility and accessibility through a pure black-and-white color palette and dynamic variable typography.
 
+Check out a working live demo: https://pedamado.github.io/voxtranslate/
+
 _Designed by Pedro Amado (FBAUP/i2ADS/Ligatures) and developed by Gemini 3 in Antigravity. (April, 2026)._
 
 ## Features
