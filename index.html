@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxTranslate</title>
+    <!-- Inter Variable Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    
+    <!-- p5.js Audio Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --pt-color: #888888;
+            --font-family: 'Inter', sans-serif;
+            --vu-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-color: #ffffff;
+                --text-color: #000000;
+                --pt-color: #888888;
+                --vu-bg: rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        body.light-mode {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --pt-color: #888888;
+            --vu-bg: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --pt-color: #888888;
+            --vu-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0 !important;
+            border: none !important; /* No stroke lines */
+            outline: none !important;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Sticky Header */
+        header {
+            position: sticky;
+            top: 0;
+            /* background-color: var(--bg-color); */
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+        }
+
+        button {
+            background: var(--text-color);
+            color: var(--bg-color);
+            padding: 1rem;
+            font-family: inherit;
+            font-weight: 900;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.1s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button:active {
+            transform: translateY(2px);
+        }
+
+        .settings-btn {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            background: transparent;
+            color: var(--text-color);
+        }
+
+        .settings-btn svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+        }
+
+        /* VU Meter */
+        .vu-container {
+            width: 100%;
+            height: 32px;
+            background: var(--vu-bg);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        .vu-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: var(--text-color);
+            width: 0%;
+            transition: width 0.05s ease-out;
+            z-index: 1;
+        }
+
+        .vu-label {
+            position: relative;
+            z-index: 2;
+            padding-left: 1rem;
+            font-weight: 900;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            mix-blend-mode: difference;
+            color: #ffffff;
+        }
+
+        /* PT Monitoring */
+        .pt-monitor {
+            font-size: 1.5rem;
+            font-weight: 400;
+            min-height: 2.5rem;
+            color: var(--pt-color);
+        }
+
+        /* Main Content - EN Captions */
+        main {
+            flex-grow: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            justify-content: flex-end;
+            padding-bottom: 20vh;
+        }
+
+        .caption {
+            font-size: var(--caption-size, 4em);
+            font-weight: var(--caption-weight, 700);
+            line-height: 1.1;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Settings Drawer */
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            z-index: 150;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .drawer-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 200;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            overflow-y: auto;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.2);
+        }
+
+        .drawer.open {
+            transform: translateX(0);
+        }
+
+        /* Critical Fix: Prevent flex items from shrinking and overlapping */
+        .drawer > * {
+            flex-shrink: 0;
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .drawer-title {
+            font-size: 2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .close-btn {
+            background: transparent;
+            color: var(--text-color);
+            font-size: 2rem;
+            padding: 0;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            color: var(--pt-color);
+        }
+
+        select {
+            background: var(--vu-bg);
+            color: var(--text-color);
+            padding: 1rem;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .primary-btn {
+            padding: 1.5rem;
+            font-size: 1.2rem;
+            margin-top: 1rem;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            padding: 1rem 0;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 32px;
+            width: 32px;
+            background: var(--text-color);
+            cursor: pointer;
+            margin-top: -14px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: var(--vu-bg);
+        }
+        
+        .credits {
+            margin-top: auto;
+            padding-top: 2rem;
+            font-size: 0.8rem;
+            color: var(--pt-color);
+            line-height: 1.4;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-top">
+            <div class="controls">
+                <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="pt-monitor" id="ptMonitor">Awaiting speech...</div>
+    </header>
+
+    <main id="captionsContainer">
+        <!-- Translated captions will appear here -->
+    </main>
+
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="drawer" id="settingsDrawer">
+        <div class="drawer-header">
+            <div class="drawer-title">VoxTranslate</div>
+            <button class="close-btn" id="closeDrawerBtn">&times;</button>
+        </div>
+
+        <div class="vu-container">
+            <div class="vu-bar" id="vuBar"></div>
+            <div class="vu-label">MIC INPUT</div>
+        </div>
+
+        <div class="form-group">
+            <label for="micSelect">Microphone Input</label>
+            <select id="micSelect">
+                <option value="default">Default Microphone</option>
+            </select>
+        </div>
+
+        <button id="micToggleBtn" class="primary-btn" style="width: 100%;">START MIC</button>
+        
+        <div class="form-group">
+            <label>Speech Confidence</label>
+            <div id="confidenceDisplay" style="font-size: 1.5rem; font-weight: 900;">--%</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Show Original PT</label>
+            <button id="ptVisibilityToggleBtn" style="width: 100%;">ON</button>
+        </div>
+
+        <div class="form-group">
+            <label>Color Theme</label>
+            <button id="themeToggleBtn" style="width: 100%;">TOGGLE LIGHT/DARK</button>
+        </div>
+
+        <div class="form-group">
+            <label for="gainSlider">Input Gain Boost (<span id="gainValueDisplay">1.0</span>x)</label>
+            <input type="range" id="gainSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="form-group">
+            <label for="fontSizeSlider">Font Size (<span id="sizeValueDisplay">4.0</span>em)</label>
+            <input type="range" id="fontSizeSlider" min="0.5" max="10.0" step="0.1" value="4.0">
+        </div>
+
+        <div class="form-group">
+            <label for="fontWeightSlider">Font Weight (<span id="weightValueDisplay">700</span>)</label>
+            <input type="range" id="fontWeightSlider" min="100" max="900" step="100" value="700">
+        </div>
+        
+        <div class="credits">
+            Designed by Pedro Amado (FBAUP/i2ADS/Ligatures) and developed by Gemini 3 in Antigravity. April, 2026.
+        </div>
+    </aside>
+
+    <script>
+        // DOM Elements
+        const micToggleBtn = document.getElementById('micToggleBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsDrawer = document.getElementById('settingsDrawer');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+        const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const ptVisibilityToggleBtn = document.getElementById('ptVisibilityToggleBtn');
+        const vuBar = document.getElementById('vuBar');
+        const ptMonitor = document.getElementById('ptMonitor');
+        const captionsContainer = document.getElementById('captionsContainer');
+        const confidenceDisplay = document.getElementById('confidenceDisplay');
+        
+        // Settings Elements
+        const micSelect = document.getElementById('micSelect');
+        const gainSlider = document.getElementById('gainSlider');
+        const gainValueDisplay = document.getElementById('gainValueDisplay');
+        const fontSizeSlider = document.getElementById('fontSizeSlider');
+        const sizeValueDisplay = document.getElementById('sizeValueDisplay');
+        const fontWeightSlider = document.getElementById('fontWeightSlider');
+        const weightValueDisplay = document.getElementById('weightValueDisplay');
+
+        // State
+        let isListening = false;
+        let recognition;
+        let phraseTimer = null;
+        let contextBuffer = '';
+        
+        // Settings State
+        let settings = {
+            micId: 'default',
+            gain: 1,
+            fontWeight: 700,
+            fontSize: 4.0,
+            theme: 'auto', // 'auto', 'light', 'dark'
+            showPT: true
+        };
+
+        // Initialize
+        function init() {
+            loadSettings();
+            applySettings();
+            setupSpeechRecognition();
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('voxSettingsV3');
+            if (saved) {
+                settings = { ...settings, ...JSON.parse(saved) };
+            }
+            // Populate UI
+            gainSlider.value = settings.gain;
+            fontSizeSlider.value = settings.fontSize || 4.0;
+            fontWeightSlider.value = settings.fontWeight;
+            gainValueDisplay.textContent = settings.gain;
+            sizeValueDisplay.textContent = settings.fontSize || 4.0;
+            weightValueDisplay.textContent = settings.fontWeight;
+        }
+
+        function saveSettings() {
+            settings.micId = micSelect.value;
+            settings.gain = parseFloat(gainSlider.value);
+            settings.fontSize = parseFloat(fontSizeSlider.value);
+            settings.fontWeight = parseInt(fontWeightSlider.value);
+            
+            localStorage.setItem('voxSettingsV3', JSON.stringify(settings));
+            applySettings();
+        }
+
+        function applySettings() {
+            document.documentElement.style.setProperty('--caption-weight', settings.fontWeight);
+            document.documentElement.style.setProperty('--caption-size', `${settings.fontSize}em`);
+
+            // Theme
+            document.body.classList.remove('light-mode', 'dark-mode');
+            if (settings.theme === 'light') {
+                document.body.classList.add('light-mode');
+            } else if (settings.theme === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
+            
+            // PT Visibility
+            if (settings.showPT) {
+                ptMonitor.style.display = 'block';
+                ptVisibilityToggleBtn.textContent = "ON";
+                ptVisibilityToggleBtn.style.background = "var(--text-color)";
+                ptVisibilityToggleBtn.style.color = "var(--bg-color)";
+            } else {
+                ptMonitor.style.display = 'none';
+                ptVisibilityToggleBtn.textContent = "OFF";
+                ptVisibilityToggleBtn.style.background = "var(--vu-bg)";
+                ptVisibilityToggleBtn.style.color = "var(--text-color)";
+            }
+        }
+
+        // Theme Toggle
+        themeToggleBtn.addEventListener('click', () => {
+            if (settings.theme === 'auto') {
+                const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+                settings.theme = prefersLight ? 'dark' : 'light';
+            } else if (settings.theme === 'light') {
+                settings.theme = 'dark';
+            } else {
+                settings.theme = 'light';
+            }
+            saveSettings();
+        });
+        
+        // PT Visibility Toggle
+        ptVisibilityToggleBtn.addEventListener('click', () => {
+            settings.showPT = !settings.showPT;
+            saveSettings();
+        });
+
+        // Drawer Events
+        function openDrawer() {
+            settingsDrawer.classList.add('open');
+            drawerOverlay.classList.add('open');
+            populateAudioDevices();
+        }
+
+        function closeDrawer() {
+            settingsDrawer.classList.remove('open');
+            drawerOverlay.classList.remove('open');
+            saveSettings();
+        }
+
+        settingsBtn.addEventListener('click', openDrawer);
+        closeDrawerBtn.addEventListener('click', closeDrawer);
+        drawerOverlay.addEventListener('click', closeDrawer);
+
+        gainSlider.addEventListener('input', (e) => {
+            gainValueDisplay.textContent = e.target.value;
+            saveSettings();
+        });
+
+        fontSizeSlider.addEventListener('input', (e) => {
+            sizeValueDisplay.textContent = e.target.value;
+            saveSettings();
+        });
+
+        fontWeightSlider.addEventListener('input', (e) => {
+            weightValueDisplay.textContent = e.target.value;
+            saveSettings();
+        });
+
+        micSelect.addEventListener('change', () => {
+            saveSettings();
+            if (isListening) {
+                stopListening();
+                setTimeout(startListening, 100);
+            }
+        });
+
+        async function populateAudioDevices() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                
+                micSelect.innerHTML = '';
+                
+                const defaultOption = document.createElement('option');
+                defaultOption.value = 'default';
+                defaultOption.text = 'Default Microphone';
+                micSelect.appendChild(defaultOption);
+
+                audioInputs.forEach(device => {
+                    if(device.deviceId && device.deviceId !== 'default') {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.text = device.label || `Microphone ${micSelect.length}`;
+                        micSelect.appendChild(option);
+                    }
+                });
+                
+                if (settings.micId) {
+                    micSelect.value = settings.micId;
+                }
+            } catch (err) {
+                console.error("Error enumerating devices:", err);
+            }
+        }
+
+        // Web Speech API Setup
+        function setupSpeechRecognition() {
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!window.SpeechRecognition) {
+                ptMonitor.textContent = "Error: Speech Recognition API not supported in this browser.";
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'pt-PT';
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                let currentConfidence = 0;
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                        currentConfidence = event.results[i][0].confidence;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (interimTranscript) {
+                    ptMonitor.textContent = interimTranscript;
+                    
+                    if (!phraseTimer) {
+                        phraseTimer = setTimeout(() => {
+                            if (isListening) {
+                                recognition.stop(); // Force phrase finalization
+                                phraseTimer = null;
+                            }
+                        }, 5000);
+                    }
+                }
+
+                if (finalTranscript) {
+                    ptMonitor.textContent = finalTranscript;
+                    confidenceDisplay.textContent = `${Math.round(currentConfidence * 100)}%`;
+                    translateText(finalTranscript.trim());
+                    
+                    if (phraseTimer) {
+                        clearTimeout(phraseTimer);
+                        phraseTimer = null;
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                if (event.error === 'not-allowed') {
+                    stopListening();
+                    alert("Microphone access denied.");
+                }
+            };
+            
+            recognition.onend = () => {
+                if (phraseTimer) {
+                    clearTimeout(phraseTimer);
+                    phraseTimer = null;
+                }
+                if (isListening) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            };
+        }
+
+        // p5.js Audio Architecture for VU Meter
+        let p5Mic;
+        let p5Amp;
+        
+        new p5((p) => {
+            p.setup = () => {
+                p.noCanvas();
+                p5Mic = new p5.AudioIn();
+                p5Amp = new p5.Amplitude();
+                p5Amp.setInput(p5Mic);
+            };
+
+            p.draw = () => {
+                if (isListening && p5Mic && p5Amp) {
+                    let level = p5Amp.getLevel(); // 0.0 to 1.0
+                    // Apply gain slider to amplitude reading
+                    let boostedLevel = level * settings.gain;
+                    // Apply slight exponential curve and map to 100%
+                    let percent = Math.min(Math.max((boostedLevel * 3) ** 0.85 * 100, 0), 100);
+                    vuBar.style.width = `${percent}%`;
+                }
+            };
+        });
+
+        // Main Control Hooks
+        function startListening() {
+            try {
+                // Ensure p5 audio context is unlocked
+                if (p5.prototype.getAudioContext().state !== 'running') {
+                    p5.prototype.userStartAudio();
+                }
+                
+                // Start p5 mic
+                if (p5Mic) p5Mic.start();
+                
+                // Start Speech Recognition
+                try {
+                    recognition.start();
+                } catch(e) {}
+                
+                isListening = true;
+                micToggleBtn.textContent = "STOP MIC";
+                micToggleBtn.style.background = "var(--bg-color)";
+                micToggleBtn.style.color = "var(--text-color)";
+                micToggleBtn.style.border = "2px solid var(--text-color)";
+                ptMonitor.textContent = "Listening...";
+                confidenceDisplay.textContent = "--%";
+
+            } catch (err) {
+                console.error("Error starting microphone:", err);
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            
+            if (phraseTimer) {
+                clearTimeout(phraseTimer);
+                phraseTimer = null;
+            }
+            if (recognition) recognition.stop();
+            if (p5Mic) p5Mic.stop();
+            
+            vuBar.style.width = '0%';
+            micToggleBtn.textContent = "START MIC";
+            micToggleBtn.style.background = "var(--text-color)";
+            micToggleBtn.style.color = "var(--bg-color)";
+            micToggleBtn.style.border = "none";
+            ptMonitor.textContent = "Stopped.";
+        }
+
+        micToggleBtn.addEventListener('click', () => {
+            if (isListening) {
+                stopListening();
+            } else {
+                startListening();
+            }
+        });
+
+        // Translation Engine (Free Google Translate API with Context Workaround)
+        async function translateText(text) {
+            if (!text) return;
+
+            const captionDiv = document.createElement('div');
+            captionDiv.className = 'caption';
+            captionDiv.style.opacity = '0.5';
+            captionDiv.textContent = "...";
+            captionsContainer.appendChild(captionDiv);
+            window.scrollTo(0, document.body.scrollHeight);
+
+            try {
+                let queryText = text;
+                const useDelimiter = contextBuffer.length > 0;
+                
+                if (useDelimiter) {
+                    queryText = `${contextBuffer} | ${text}`;
+                }
+
+                // Free, no-key undocumented Google Translate endpoint
+                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=pt&tl=en&dt=t&q=${encodeURIComponent(queryText)}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data && data[0]) {
+                    let translatedText = data[0].map(item => item[0]).join('');
+
+                    if (useDelimiter) {
+                        const parts = translatedText.split('|');
+                        if (parts.length > 1) {
+                            translatedText = parts.slice(1).join('|');
+                        }
+                    }
+
+                    captionDiv.style.opacity = '1';
+                    captionDiv.textContent = translatedText.trim();
+                    contextBuffer = text;
+                } else {
+                    throw new Error("Invalid translation response format.");
+                }
+
+            } catch (error) {
+                console.error("Translation Error:", error);
+                captionDiv.style.opacity = '1';
+                captionDiv.textContent = `[ERROR: ${error.message}]`;
+            }
+            
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        // Run
+        init();
+
+    </script>
+</body>
+</html>
